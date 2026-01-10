@@ -1,10 +1,6 @@
 {
   "outputDirectory": "frontend/dist",
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://test-fxv4.onrender.com/api/:path*"
-    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
