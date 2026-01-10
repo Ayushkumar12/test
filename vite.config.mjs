@@ -21,7 +21,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://nursing-exam-portal.onrender.com',
+        target: 'https://test-tawny-delta-89.vercel.app',
         changeOrigin: true,
       },
     },
