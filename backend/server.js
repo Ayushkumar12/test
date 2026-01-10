@@ -12,8 +12,24 @@ const gameRoutes = require('./routes/game');
 
 const app = express();
 
-app.use(cors());
+// Enable CORS for all origins with credentials support
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json());
+
+// Request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
