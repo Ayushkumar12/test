@@ -15,7 +15,7 @@ app.set('trust proxy', 1);
 
 // Manual CORS implementation - at the very top
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  const origin = "http://localhost:3000" || "https://test-tawny-delta-89.vercel.app";
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
