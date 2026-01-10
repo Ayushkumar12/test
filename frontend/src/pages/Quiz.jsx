@@ -108,10 +108,13 @@ const Quiz = () => {
       try {
         const url = isAI ? `/quiz/generate-ai/${exam}` : `/quiz/generate/${exam}`;
         const { data } = await api.get(url);
-        if (!data || data.length === 0) {
+        
+        let rawQuestions = isAI ? data.questions : data;
+
+        if (!rawQuestions || rawQuestions.length === 0) {
           setError("No questions available for this exam yet.");
         } else {
-          const shuffledQuestions = data.map(q => {
+          const processQuestions = (qs) => qs.map(q => {
             const originalOptions = [...q.options];
             const shuffledOptions = [...q.options];
             const mapping = [];
@@ -137,7 +140,22 @@ const Quiz = () => {
             };
           });
 
-          setQuestions(shuffledQuestions);
+          setQuestions(processQuestions(rawQuestions));
+
+          // If AI, fetch remaining questions in background
+          if (isAI && data.allTopics && data.allTopics.length > 2) {
+            const remainingTopics = data.allTopics.slice(2);
+            api.post('/quiz/generate-ai/remaining', {
+              exam,
+              topics: remainingTopics,
+              startIndex: rawQuestions.length
+            }).then(res => {
+              if (res.data && res.data.questions) {
+                const processedRemaining = processQuestions(res.data.questions);
+                setQuestions(prev => [...prev, ...processedRemaining]);
+              }
+            }).catch(err => console.error("Background loading failed:", err));
+          }
         }
         setLoading(false);
       } catch (err) {

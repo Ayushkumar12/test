@@ -12,15 +12,8 @@ const gameRoutes = require('./routes/game');
 
 const app = express();
 
-// Enable CORS for all origins with credentials support
-app.use(cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Handle preflight requests
+// Use standard CORS configuration
+app.use(cors());
 app.options('*', cors());
 
 app.use(express.json());

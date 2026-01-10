@@ -7,39 +7,68 @@ const { auth } = require('../middleware/authMiddleware');
 const { checkAndAwardAchievements } = require('../utils/achievementHandler');
 const { getSyllabus, generateQuestionsForTopic } = require('../utils/mistral');
 
-// Generate 100 questions using AI: 10 from each of 10 topics
+// 1. Initial Load: Get syllabus + first 20 questions (2 topics)
 router.get('/generate-ai/:exam', auth, async (req, res) => {
   try {
     const { exam } = req.params;
     
-    // 1. Get syllabus/topics using AI
+    // Get full syllabus
     const topics = await getSyllabus(exam);
     
-    // 2. Generate 10 questions for each topic in parallel
-    // Slice topics to ensure we don't exceed 10 topics if AI returns more
-    const questionPromises = topics.slice(0, 10).map(topic => 
+    // Generate only first 2 topics (20 questions) for immediate start
+    const initialTopics = topics.slice(0, 2);
+    const questionPromises = initialTopics.map(topic => 
       generateQuestionsForTopic(topic, exam, 10)
     );
     
     const results = await Promise.all(questionPromises);
-    const allQuestions = results.flat().filter(q => q && q.question && Array.isArray(q.options));
+    const initialQuestions = results.flat().filter(q => q && q.question && Array.isArray(q.options));
 
-    if (allQuestions.length === 0) {
-      return res.status(500).json({ error: 'Failed to generate any questions' });
-    }
-
-    // Add temporary IDs for frontend use
-    const questionsWithIds = allQuestions.map((q, index) => ({
+    const questionsWithIds = initialQuestions.map((q, index) => ({
       ...q,
       _id: `ai_${index}_${Date.now()}`,
-      correct_original: q.correct // Ensure frontend has original correct index
+      correct_original: q.correct
     }));
 
-    await logActivity(req.user._id, 'QUIZ_STARTED', `Started AI quiz: ${exam}`);
-    res.json(questionsWithIds);
+    await logActivity(req.user._id, 'QUIZ_STARTED', `Started AI quiz (Initial): ${exam}`);
+    
+    res.json({
+      questions: questionsWithIds,
+      allTopics: topics, // Return syllabus so frontend can fetch rest
+      exam
+    });
   } catch (error) {
     console.error('Error in generate-ai route:', error);
     res.status(500).json({ error: 'Internal server error during AI quiz generation' });
+  }
+});
+
+// 2. Background Load: Get remaining questions for the rest of topics
+router.post('/generate-ai/remaining', auth, async (req, res) => {
+  try {
+    const { exam, topics, startIndex } = req.body;
+    
+    if (!topics || !Array.isArray(topics)) {
+      return res.status(400).json({ error: 'Topics are required' });
+    }
+
+    const questionPromises = topics.map(topic => 
+      generateQuestionsForTopic(topic, exam, 10)
+    );
+    
+    const results = await Promise.all(questionPromises);
+    const remainingQuestions = results.flat().filter(q => q && q.question && Array.isArray(q.options));
+
+    const questionsWithIds = remainingQuestions.map((q, index) => ({
+      ...q,
+      _id: `ai_${(startIndex || 20) + index}_${Date.now()}`,
+      correct_original: q.correct
+    }));
+
+    res.json({ questions: questionsWithIds });
+  } catch (error) {
+    console.error('Error in generate-ai-remaining route:', error);
+    res.status(500).json({ error: 'Failed to generate remaining questions' });
   }
 });
 
