@@ -11,16 +11,16 @@ const { getSyllabus, generateQuestionsForTopic } = require('../utils/mistral');
 router.get('/generate-ai/:exam', auth, async (req, res) => {
   try {
     const { exam } = req.params;
-    
+
     // Get full syllabus
     const topics = await getSyllabus(exam);
-    
+
     // Generate only first 2 topics (20 questions) for immediate start
     const initialTopics = topics.slice(0, 2);
-    const questionPromises = initialTopics.map(topic => 
+    const questionPromises = initialTopics.map(topic =>
       generateQuestionsForTopic(topic, exam, 10)
     );
-    
+
     const results = await Promise.all(questionPromises);
     const initialQuestions = results.flat().filter(q => q && q.question && Array.isArray(q.options));
 
@@ -31,7 +31,7 @@ router.get('/generate-ai/:exam', auth, async (req, res) => {
     }));
 
     await logActivity(req.user._id, 'QUIZ_STARTED', `Started AI quiz (Initial): ${exam}`);
-    
+
     res.json({
       questions: questionsWithIds,
       allTopics: topics, // Return syllabus so frontend can fetch rest
@@ -47,15 +47,15 @@ router.get('/generate-ai/:exam', auth, async (req, res) => {
 router.post('/generate-ai/remaining', auth, async (req, res) => {
   try {
     const { exam, topics, startIndex } = req.body;
-    
+
     if (!topics || !Array.isArray(topics)) {
       return res.status(400).json({ error: 'Topics are required' });
     }
 
-    const questionPromises = topics.map(topic => 
+    const questionPromises = topics.map(topic =>
       generateQuestionsForTopic(topic, exam, 10)
     );
-    
+
     const results = await Promise.all(questionPromises);
     const remainingQuestions = results.flat().filter(q => q && q.question && Array.isArray(q.options));
 
@@ -109,7 +109,7 @@ router.get('/generate/:exam', auth, async (req, res) => {
 router.post('/submit', auth, async (req, res) => {
   try {
     const { exam, responses, isAI } = req.body; // responses: [{ questionId, selectedOption, correctOption }]
-    
+
     let score = 0;
     const detailedResponses = [];
 
@@ -125,7 +125,7 @@ router.post('/submit', auth, async (req, res) => {
       }
 
       if (isCorrect) score++;
-      
+
       detailedResponses.push({
         questionId: isAI ? null : resp.questionId,
         selectedOption: resp.selectedOption,
@@ -143,14 +143,14 @@ router.post('/submit', auth, async (req, res) => {
 
     await attempt.save();
     await logActivity(req.user._id, 'QUIZ_COMPLETED', `Completed quiz: ${exam}. Score: ${score}/${responses.length}`);
-    
+
     // Check for new achievements
     const newlyEarned = await checkAndAwardAchievements(req.user._id);
-    
+
     // Get updated user to return latest title/achievements
     const User = require('../models/User');
     const updatedUser = await User.findById(req.user._id).select('-password');
-    
+
     res.status(201).send({
       attempt,
       newAchievements: newlyEarned,
@@ -162,11 +162,14 @@ router.post('/submit', auth, async (req, res) => {
 });
 
 // Get user history
+// Get user history
 router.get('/history', auth, async (req, res) => {
   try {
+    // Limit to last 50 attempts to prevent memory overflow
     const history = await Attempt.find({ user: req.user._id })
       .populate('responses.questionId')
-      .sort({ date: -1 });
+      .sort({ date: -1 })
+      .limit(50);
     res.send(history);
   } catch (error) {
     res.status(500).send({ error: error.message });
@@ -176,25 +179,26 @@ router.get('/history', auth, async (req, res) => {
 // Get user report
 router.get('/report', auth, async (req, res) => {
   try {
+    // Fetch all attempts but WITHOUT populating questions to save memory.
     const attempts = await Attempt.find({ user: req.user._id })
-      .populate('responses.questionId')
       .sort({ date: -1 });
+
     const stats = {
       totalAttempts: attempts.length,
-      averageScore: attempts.length > 0 
-        ? (attempts.reduce((sum, a) => sum + (a.score / a.totalQuestions), 0) / attempts.length) * 100 
+      averageScore: attempts.length > 0
+        ? (attempts.reduce((sum, a) => sum + (a.score / a.totalQuestions), 0) / attempts.length) * 100
         : 0,
       highestScore: attempts.length > 0
         ? Math.max(...attempts.map(a => (a.score / a.totalQuestions) * 100))
         : 0
     };
-    
+
     res.send({
-      student: { 
-        name: req.user.name, 
+      student: {
+        name: req.user.name,
         email: req.user.email,
         title: req.user.title,
-        achievements: req.user.achievements 
+        achievements: req.user.achievements
       },
       attempts,
       stats

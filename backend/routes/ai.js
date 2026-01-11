@@ -15,7 +15,7 @@ router.post('/career-insight', auth, async (req, res) => {
   try {
     const { attemptId } = req.body;
     const attempt = await Attempt.findById(attemptId).populate('responses.questionId');
-    
+
     if (!attempt) {
       return res.status(404).json({ error: 'Attempt not found' });
     }
@@ -68,11 +68,11 @@ router.post('/chat', auth, async (req, res) => {
 
     // Fetch user details
     const user = await User.findById(userId);
-    
+
     // Fetch previous exam attempts
     const attempts = await Attempt.find({ user: userId }).sort({ date: -1 }).limit(5);
-    
-    const performanceSummary = attempts.length > 0 
+
+    const performanceSummary = attempts.length > 0
       ? attempts.map(a => `- Exam: ${a.exam}, Score: ${a.score}/${a.totalQuestions}, Date: ${new Date(a.date).toLocaleDateString()}`).join('\n')
       : 'No exams taken yet.';
 
@@ -82,7 +82,7 @@ router.post('/chat', auth, async (req, res) => {
       chat = new Chat({ user: userId, messages: [] });
     }
 
-    
+
     const systemInstruction = `You are a professional medical assistant and educator for healthcare students. 
 Your goal is to provide accurate, helpful, and encouraging information about medical topics, healthcare practices, and exam preparation. 
 Always maintain a professional tone and emphasize patient safety and evidence-based practice.
@@ -148,6 +148,12 @@ Personalize your responses using the student's name. If a question is outside th
     // Update chat history in DB
     chat.messages.push({ role: 'user', content: message });
     chat.messages.push({ role: 'assistant', content: reply, imageUrl });
+
+    // Limit history to last 50 messages to prevent unbounded growth
+    if (chat.messages.length > 50) {
+      chat.messages = chat.messages.slice(-50);
+    }
+
     chat.updatedAt = Date.now();
     await chat.save();
 
@@ -155,21 +161,21 @@ Personalize your responses using the student's name. If a question is outside th
     user.chatbotUsageCount = (user.chatbotUsageCount || 0) + 1;
     await user.save();
     const newAchievements = await checkAndAwardAchievements(userId);
-    
+
     // Get updated user to return latest title/achievements
     const updatedUser = await User.findById(userId).select('-password');
 
     res.json({ reply, imageUrl, newAchievements, user: updatedUser });
   } catch (error) {
     console.error('Gemini AI Chat Error:', error);
-    
+
     // Check for specific API key suspension or invalid key errors
     if (error.status === 403 || error.message?.includes('403') || error.message?.includes('suspended')) {
-      return res.status(403).json({ 
-        error: 'AI service is currently unavailable due to API key suspension. Please check your GEMINI_API_KEY configuration.' 
+      return res.status(403).json({
+        error: 'AI service is currently unavailable due to API key suspension. Please check your GEMINI_API_KEY configuration.'
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to get response from AI assistant' });
   }
 });

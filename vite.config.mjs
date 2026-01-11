@@ -19,7 +19,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    allowedHosts: ["test-fxv4.onrender.com", "https://test-tawny-delta-89.vercel.app"],
+    allowedHosts: ["https://test-fxv4.onrender.com", "https://test-tawny-delta-89.vercel.app"],
     proxy: {
       '/api': {
         target: 'https://test-tawny-delta-89.vercel.app',
