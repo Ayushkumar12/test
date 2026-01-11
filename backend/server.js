@@ -19,12 +19,20 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       "http://localhost:3000",
+      "http://localhost:5173",
       "https://test-tawny-delta-89.vercel.app",
-      "https://test-tawny-delta-89.vercel.app/",
       "https://test-fxv4.onrender.com"
     ];
 
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    // Check if origin is allowed
+    const isAllowed =
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      /^http:\/\/localhost:\d+$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('Blocked by CORS:', origin);
@@ -36,6 +44,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   maxAge: 86400
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Request logging for debugging
 app.use((req, res, next) => {
