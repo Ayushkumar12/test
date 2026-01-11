@@ -15,12 +15,17 @@ app.set('trust proxy', 1);
 
 // Manual CORS implementation - at the very top
 app.use((req, res, next) => {
-  const origin = "http://localhost:3000" || "https://test-tawny-delta-89.vercel.app";
-  if (origin) {
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "https://test-tawny-delta-89.vercel.app",
+    "https://test-fxv4.onrender.com"
+  ];
+  const origin = req.headers.origin;
+  
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-  } else {
-    // For non-credentialed requests or same-origin
+  } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
   
